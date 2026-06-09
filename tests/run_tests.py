@@ -197,21 +197,6 @@ def compile_test_cases(
     for case in test_cases:
         print(f"Compiling {case}...", end="")
 
-        # Skip the table loading test for old iASL, it prints bogus error
-        # messages and refuses to compile the test case no matter what I try:
-        #
-        #                             If (!Load(TABL)) {
-        # Error    6126 -       syntax error ^
-        #
-        if os.path.basename(case) == "table-loading-0.asl":
-            out = subprocess.check_output([compiler, "-v"],
-                                          universal_newlines=True)
-            # I don't know which versions it's broken for specifically, this
-            # one comes with Ubuntu 22.04, so hardcode it.
-            if "20200925" in out:
-                print("SKIPPED (bugged iASL)", flush=True)
-                continue
-
         compiled_cases.append(
             TestCaseWithMain(
                 ASLSource.compile(case, compiler, bin_dir),
@@ -385,7 +370,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Run uACPI tests")
     parser.add_argument("--asl-compiler",
                         help="Compiler to use to build test cases",
-                        default="iasl")
+                        default="aml-tool")
     parser.add_argument("--acpi-extractor",
                         help="ACPI extractor utility to use for ACPI dumps",
                         default="acpixtract")

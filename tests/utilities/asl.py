@@ -138,67 +138,7 @@ class ASLSource:
         case_aml_name = os.path.basename(path).rsplit(".", 1)[0] + ".aml"
         out_case = os.path.join(bin_dir, case_aml_name)
 
-        ignored_warnings = [
-            # Warning 3144 Method Local is set but never used
-            "-vw", "3144",
-            # Remark 2098 Recursive method call
-            "-vw", "2098",
-
-            # Invalid type [Reference] found, RefOf operator requires
-            # [Integer|String|Buffer|Package|FieldUnit|Device|Event|
-            #  Method|Mutex|Region|Power|Processor|Thermal|BufferField|
-            #  DdbHandle|DebugObject]
-            "-vw", "6058",
-
-            # One or more objects within the Pathname do not exist
-            "-vw", "6161",
-            # Too few arguments
-            "-vw", "6005",
-            # Called method returns no value
-            "-vw", "6080",
-            # Object does not exist
-            "-vw", "6084",
-
-            # Not a control method, cannot invoke
-            "-vw", "6086",
-
-            # Object is not referenced
-            "-vw", "2089",
-
-            # Creation of named objects within a method is highly inefficient
-            "-vw", "2173",
-
-            # Existing object has invalid type for Scope operator
-            "-vw", "6117",
-
-            # Switch expression is not a static Integer/Buffer/String data
-            "-vw", "3124",
-
-            # Static OperationRegion should be declared outside control method
-            "-vw", "3175",
-
-            # Missing dependency
-            # (for some reason it has two different error codes)
-            "-vw", "3141",
-            "-vw", "6141",
-
-            # Field Unit extends beyond region limit
-            "-vw", "6031",
-
-            # Name already exists in scope
-            "-vw", "6074",
-
-            # Object not found or not accessible from current scope
-            "-vw", "6085",
-
-            # Legacy Processor() keyword detected. Use Device() keyword instead
-            "-vw", "3168",
-
-            #  Local or Arg used outside a control method
-            "-vw", "2067",
-        ]
-
-        args = [compiler, *ignored_warnings, "-oa", "-p", out_case, path]
+        args = [compiler, "compile", path, "-o", out_case]
         proc = subprocess.Popen(args, stdout=subprocess.PIPE,
                                 stderr=subprocess.PIPE,
                                 universal_newlines=True)

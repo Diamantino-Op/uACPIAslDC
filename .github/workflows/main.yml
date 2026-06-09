@@ -29,46 +29,44 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        # MacOS is temporarily removed due to https://github.com/acpica/acpica/issues/1154
         os: [ubuntu-latest, windows-latest]
     steps:
       - uses: actions/checkout@v3
         with:
           submodules: true
+
       - if: ${{ matrix.os != 'macos-latest' }}
         name: Set up OpenWatcom
         uses: open-watcom/setup-watcom@v0
         with:
           version: '2.0'
+
       - if: ${{ matrix.os == 'ubuntu-latest' }}
         name: Install tools & libraries (Ubuntu)
         run: |
           sudo apt update
-          sudo apt install python3 python3-pytest acpica-tools cmake gcc-multilib g++-multilib
+          sudo apt install python3 python3-pytest cmake gcc-multilib g++-multilib
           # https://github.com/actions/runner-images/issues/9491#issuecomment-1989718917
           sudo sysctl vm.mmap_rnd_bits=28
+          chmod +x "${{ github.workspace }}/aml-tool"
+          echo "${{ github.workspace }}" >> $GITHUB_PATH
+
       - if: ${{ matrix.os == 'macos-latest' }}
         name: Install tools & libraries (MacOS)
         run: |
           export PIP_BREAK_SYSTEM_PACKAGES=1
-          brew install python3 acpica cmake
+          brew install python3 cmake
           python3 -m pip install pytest
+          chmod +x "${{ github.workspace }}/aml-tool"
+          echo "${{ github.workspace }}" >> $GITHUB_PATH
+
       - if: ${{ matrix.os == 'windows-latest' }}
         name: Install tools & libraries (Windows)
         run: |
-          # Hardcode ACPICA version due to a regression in https://github.com/acpica/acpica/issues/1154
-          # We use a locally committed ZIP because Intel blocks GitHub Actions from downloading stuff
-          $ZIP_PATH = ".\.github\workflows\acpica-pre-regression.zip"
-          $DEST_DIR = "C:\iasl-20251212"
-
-          Write-Host "Extracting local iASL to $DEST_DIR..."
-          Expand-Archive -Path $ZIP_PATH -DestinationPath $DEST_DIR -Force
-
-          Write-Host "Adding $DEST_DIR to GITHUB_PATH..."
-          "$DEST_DIR" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-
           choco install python3 cmake llvm
           python3 -m pip install pytest
+          # Add repo root to PATH so aml-tool.exe is found
+          "${{ github.workspace }}" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
       - name: Ensure reduced-hardware/unsized-frees/fmt-logging/no-kernel-init/builtin-string/native-mmio build compiles
         run: |

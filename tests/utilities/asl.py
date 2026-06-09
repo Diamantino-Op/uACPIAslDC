@@ -204,7 +204,7 @@ class ASLSource:
                 check=True
             )
             
-            args = [compiler, "compiler", path, "-o", out_case]
+            args = [compiler, "compile", path, "-o", out_case]
         else:
             args = [compiler, *ignored_warnings, "-oa", "-p", out_case, path]
 

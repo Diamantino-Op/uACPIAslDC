@@ -199,11 +199,7 @@ class ASLSource:
         ]
 
         if compiler.endswith("aml-tool"):
-            chmod_args = ["chmod", "+x", compiler]
-
-            subprocess.Popen(chmod_args, stdout=subprocess.PIPE,
-                                stderr=subprocess.PIPE,
-                                universal_newlines=True)
+            os.chmod(compiler, os.stat(compiler).st_mode | os.stat.S_IXUSR | os.stat.S_IXGRP | os.stat.S_IXOTH)
             
             args = [compiler, "compiler", path, "-o", out_case]
         else:

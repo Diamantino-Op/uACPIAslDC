@@ -5,10 +5,10 @@ from typing import List, Optional, Callable
 from utilities.asl import ASL, ASLSource
 
 
-ACPICA_BUFFER_PRINT_PREFIX = "    0000: "
+UACPI_BUFFER_PRINT_PREFIX = "    0000: "
 
 
-def _parse_acpiexec_buffers(raw_output: str) -> List[List[int]]:
+def _parse_uacpi_buffers(raw_output: str) -> List[List[int]]:
     lines = raw_output.split("\n")
     answers = []
 
@@ -18,10 +18,10 @@ def _parse_acpiexec_buffers(raw_output: str) -> List[List[int]]:
             break
 
     for line in lines:
-        if not line.startswith(ACPICA_BUFFER_PRINT_PREFIX):
+        if not line.startswith(UACPI_BUFFER_PRINT_PREFIX):
             continue
 
-        line = line.removeprefix(ACPICA_BUFFER_PRINT_PREFIX)
+        line = line.removeprefix(UACPI_BUFFER_PRINT_PREFIX)
         buffer_bytes = []
 
         for x in line.split(" "):
@@ -74,38 +74,46 @@ _READS_ANSWERS_NAME = "buffer-reads-answers"
 _WRITES_ANSWERS_NAME = "buffer-writes-answers"
 
 
+def _run_answers_aml(
+    runner: str, output_path: str
+) -> List[List[int]]:
+    """
+    Execute an answers AML file through the uACPI test runner with
+    --dump-buffers and parse the resulting hex-dump output.
+    """
+    raw_answers = subprocess.check_output(
+        [runner, output_path, "--dump-buffers"],
+        universal_newlines=True
+    )
+    return _parse_uacpi_buffers(raw_answers)
+
+
 def _generate_buffer_reads_answers(
-    compiler: str, bin_dir: str, src: ASLSource
+    compiler: str, bin_dir: str, src: ASLSource,
+    runner: str
 ) -> List[List[int]]:
     output_path = os.path.join(bin_dir, _READS_ANSWERS_NAME + ".aml")
     if not os.path.exists(output_path):
         _do_generate_buffer_reads_answers(compiler, bin_dir, src)
 
-    raw_answers = subprocess.check_output(
-        ["acpiexec", "-b", "execute MAIN", output_path],
-        universal_newlines=True
-    )
-    return _parse_acpiexec_buffers(raw_answers)
+    return _run_answers_aml(runner, output_path)
 
 
 def _generate_buffer_writes_answers(
-    compiler: str, bin_dir: str, src: ASLSource
+    compiler: str, bin_dir: str, src: ASLSource,
+    runner: str
 ) -> List[List[int]]:
     output_path = os.path.join(bin_dir, _WRITES_ANSWERS_NAME + ".aml")
     if not os.path.exists(output_path):
         _do_generate_buffer_writes_answers(compiler, bin_dir, src)
 
-    raw_answers = subprocess.check_output(
-        ["acpiexec", "-b", "execute MAIN", output_path],
-        universal_newlines=True
-    )
-    return _parse_acpiexec_buffers(raw_answers)
+    return _run_answers_aml(runner, output_path)
 
 
 def _do_generate_buffer_reads_answers(
     compiler: str, bin_dir: str, src: ASLSource
 ) -> None:
-    def gen_buffer_dump(i, j, src):
+    def gen_buffer_dump(i: int, j: int, src: ASLSource) -> None:
         field_size = j - i
         field_name = f"FI{field_size:02X}"
 
@@ -122,7 +130,7 @@ def _do_generate_buffer_reads_answers(
 def _do_generate_buffer_writes_answers(
     compiler: str, bin_dir: str, src: ASLSource
 ) -> None:
-    def gen_buffer_dump(i, j, src):
+    def gen_buffer_dump(i: int, j: int, src: ASLSource) -> None:
         field_size = j - i
         field_name = f"FI{field_size:02X}"
 
@@ -141,20 +149,24 @@ _READS_TEST_NAME = "2080-buffer-reads"
 _WRITES_TEST_NAME = "2080-buffer-writes"
 
 
-def generate_buffer_reads_test(compiler: str, bin_dir: str) -> str:
+def generate_buffer_reads_test(
+    compiler: str, bin_dir: str, runner: str
+) -> str:
     output_path = os.path.join(bin_dir, _READS_TEST_NAME + ".asl")
     if os.path.exists(output_path):
         return output_path
 
-    return _do_generate_buffer_reads_test(compiler, bin_dir)
+    return _do_generate_buffer_reads_test(compiler, bin_dir, runner)
 
 
-def generate_buffer_writes_test(compiler: str, bin_dir: str) -> str:
+def generate_buffer_writes_test(
+    compiler: str, bin_dir: str, runner: str
+) -> str:
     output_path = os.path.join(bin_dir, _WRITES_TEST_NAME + ".asl")
     if os.path.exists(output_path):
         return output_path
 
-    return _do_generate_buffer_writes_test(compiler, bin_dir)
+    return _do_generate_buffer_writes_test(compiler, bin_dir, runner)
 
 
 def _generate_buffer_test_prologue() -> ASLSource:
@@ -185,16 +197,18 @@ def _generate_buffer_test_harness(src: ASLSource) -> None:
     src.block_end()
 
 
-def _do_generate_buffer_reads_test(compiler: str, bin_dir: str) -> str:
+def _do_generate_buffer_reads_test(
+    compiler: str, bin_dir: str, runner: str
+) -> str:
     src = _generate_buffer_test_prologue()
     answers = _generate_buffer_reads_answers(compiler, bin_dir,
-                                             copy.deepcopy(src))
+                                             copy.deepcopy(src), runner)
 
     _generate_buffer_test_harness(src)
 
     answer_idx = 0
 
-    def gen_buffer_check(i, j, src):
+    def gen_buffer_check(i: int, j: int, src: ASLSource) -> None:
         nonlocal answer_idx
         field_size = j - i
         field_name = f"FI{field_size:02X}"
@@ -219,16 +233,18 @@ def _do_generate_buffer_reads_test(compiler: str, bin_dir: str) -> str:
     return test_src_path
 
 
-def _do_generate_buffer_writes_test(compiler: str, bin_dir: str) -> str:
+def _do_generate_buffer_writes_test(
+    compiler: str, bin_dir: str, runner: str
+) -> str:
     src = _generate_buffer_test_prologue()
     answers = _generate_buffer_writes_answers(compiler, bin_dir,
-                                              copy.deepcopy(src))
+                                              copy.deepcopy(src), runner)
 
     _generate_buffer_test_harness(src)
 
     answer_idx = 0
 
-    def gen_buffer_check(i, j, src):
+    def gen_buffer_check(i: int, j: int, src: ASLSource) -> None:
         nonlocal answer_idx
         field_size = j - i
         field_name = f"FI{field_size:02X}"

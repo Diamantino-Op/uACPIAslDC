@@ -18,10 +18,12 @@ def abs_path_to_current_dir() -> str:
     return os.path.dirname(os.path.abspath(__file__))
 
 
-def generate_test_cases(compiler: str, bin_dir: str) -> List[str]:
+def generate_test_cases(
+    compiler: str, bin_dir: str, runner: str
+) -> List[str]:
     return [
-        bf.generate_buffer_reads_test(compiler, bin_dir),
-        bf.generate_buffer_writes_test(compiler, bin_dir),
+        bf.generate_buffer_reads_test(compiler, bin_dir, runner),
+        bf.generate_buffer_writes_test(compiler, bin_dir, runner),
     ]
 
 
@@ -109,7 +111,7 @@ def generate_large_test_cases(extractor: str, bin_dir: str) -> List[TestCase]:
     os.makedirs(large_tests_dir, exist_ok=True)
     test_cases = []
 
-    def recurse_one(path, depth=1):
+    def recurse_one(path: str, depth: int = 1) -> None:
         for obj in os.listdir(path):
             if obj.startswith("."):
                 continue
@@ -429,7 +431,7 @@ def main() -> int:
         for f in os.listdir(test_dir)
         if os.path.splitext(f)[1] == ".asl"
     ]
-    test_cases.extend(generate_test_cases(test_compiler, bin_dir))
+    test_cases.extend(generate_test_cases(test_compiler, bin_dir, test_runner))
 
     base_test_cases = compile_test_cases(
         test_cases, test_compiler, bin_dir

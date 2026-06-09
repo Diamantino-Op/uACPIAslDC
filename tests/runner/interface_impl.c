@@ -118,8 +118,8 @@ void uacpi_kernel_io_unmap(uacpi_handle handle)
     )                                                               \
     {                                                               \
         UACPI_UNUSED(handle);                                       \
-        UACPI_UNUSED(offset);                                       \
         UACPI_UNUSED(value);                                        \
+        UACPI_UNUSED(offset);                                       \
                                                                     \
         return UACPI_STATUS_OK;                                     \
     }
@@ -392,6 +392,12 @@ void *uacpi_kernel_alloc_zeroed(uacpi_size size)
 }
 
 #endif
+
+/*
+ * Forward-declare the buffer-dump hook defined in test_runner.c so that
+ * uacpi_kernel_log can call it for every Debug print.
+ */
+void dump_buffer_if_requested(uacpi_object *obj);
 
 #ifdef UACPI_FORMATTED_LOGGING
 

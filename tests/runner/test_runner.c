@@ -28,6 +28,43 @@ void test_object_api(void);
 void test_address_spaces(void);
 void interface_cleanup(void);
 
+/*
+ * When --dump-buffers is active every Buffer object printed via Debug
+ * is re-emitted to stdout in the acpiexec hex-dump format so that
+ * buffer_field.py can parse it without needing acpiexec.
+ *
+ * Format (matches ACPICA_BUFFER_PRINT_PREFIX in buffer_field.py):
+ *   "    0000: XX XX XX ... \n"
+ */
+static bool g_dump_buffers = false;
+
+void dump_buffer_if_requested(uacpi_object *obj)
+{
+    uacpi_data_view view;
+    uacpi_object_type type;
+    uacpi_u8 *bytes;
+    uacpi_size i;
+
+    if (!g_dump_buffers)
+        return;
+
+    type = uacpi_object_get_type(obj);
+    if (type != UACPI_OBJECT_BUFFER)
+        return;
+
+    uacpi_object_get_string_or_buffer(obj, &view);
+    bytes = (uacpi_u8 *)view.bytes;
+
+    printf("Evaluating\n");
+    printf("    0000: ");
+    for (i = 0; i < view.length; i++) {
+        if (i && (i % 16) == 0)
+            printf("\n    %04zX: ", i);
+        printf("%02X ", bytes[i]);
+    }
+    printf("\n");
+}
+
 static uacpi_object_type string_to_object_type(const char *str)
 {
     if (strcmp(str, "int") == 0)
@@ -430,22 +467,31 @@ static void run_test(
     if (dump_namespace)
         enumerate_namespace();
 
-    if (!is_test_mode)
+    if (!is_test_mode && !g_dump_buffers)
         goto done;
 
-    if (strcmp(expected_value, "check-object-api-works") == 0) {
+    if (is_test_mode &&
+        strcmp(expected_value, "check-object-api-works") == 0) {
         test_object_api();
         goto done;
     }
 
-    if (strcmp(expected_value, "check-address-spaces-work") == 0) {
+    if (is_test_mode &&
+        strcmp(expected_value, "check-address-spaces-work") == 0) {
         test_address_spaces();
         goto done;
     }
 
     st = uacpi_eval(UACPI_NULL, "\\MAIN", UACPI_NULL, &ret);
-
     ensure_ok_status(st);
+
+    if (g_dump_buffers) {
+        /* answer-generation mode: no return-value check needed */
+        if (ret)
+            uacpi_object_unref(ret);
+        goto done;
+    }
+
     if (ret == NULL)
         error("\\MAIN didn't return a value");
     validate_ret_against_expected(ret, expected_type, expected_value);
@@ -502,6 +548,11 @@ static arg_spec_t LOG_LEVEL_ARG = ARG_PARAM(
     "log-level", 'l',
     "log level to set, one of: debug, trace, info, warning, error"
 );
+static arg_spec_t DUMP_BUFFERS_ARG = ARG_FLAG(
+    "dump-buffers", 'B',
+    "execute \\MAIN and emit every Buffer Debug print in acpiexec hex-dump "
+    "format; used for buffer-field answer generation"
+);
 static arg_spec_t HELP_ARG = ARG_HELP(
     "help", 'h', "Display this menu and exit"
 );
@@ -516,6 +567,7 @@ static arg_spec_t *const OPTION_ARGS[] = {
     &ENUMERATE_NAMESPACE_ARG,
     &WHILE_LOOP_TIMEOUT_ARG,
     &LOG_LEVEL_ARG,
+    &DUMP_BUFFERS_ARG,
     &HELP_ARG,
 };
 
@@ -552,9 +604,18 @@ int main(int argc, char *argv[])
         expected_value = EXPECT_ARG.values.blobs[1].data;
     }
 
+    g_dump_buffers = is_set(&DUMP_BUFFERS_ARG);
+
     dump_namespace = is_set(&ENUMERATE_NAMESPACE_ARG);
     // Don't spam the log with traces if enumeration is enabled
     log_level = dump_namespace ? UACPI_LOG_INFO : UACPI_LOG_TRACE;
+
+    /*
+     * In dump-buffers mode suppress all log output so only the hex lines
+     * reach stdout for easy parsing.
+     */
+    if (g_dump_buffers)
+        log_level = UACPI_LOG_ERROR;
 
     if (is_set(&LOG_LEVEL_ARG))
         log_level = log_level_from_string(get(&LOG_LEVEL_ARG));

@@ -203,7 +203,7 @@ def compile_test_cases(
         #                             If (!Load(TABL)) {
         # Error    6126 -       syntax error ^
         #
-        if os.path.basename(case) == "table-loading-0.asl":
+        if os.path.basename(case) == "table-loading-0.asl" and compiler.endswith("iasl"):
             out = subprocess.check_output([compiler, "-v"],
                                           universal_newlines=True)
             # I don't know which versions it's broken for specifically, this

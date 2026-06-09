@@ -198,7 +198,11 @@ class ASLSource:
             "-vw", "2067",
         ]
 
-        args = [compiler, *ignored_warnings, "-oa", "-p", out_case, path]
+        if compiler.endswith("aml-tool"):
+            args = [compiler, "compiler", path, "-o", out_case]
+        else:
+            args = [compiler, *ignored_warnings, "-oa", "-p", out_case, path]
+
         proc = subprocess.Popen(args, stdout=subprocess.PIPE,
                                 stderr=subprocess.PIPE,
                                 universal_newlines=True)
